@@ -1,0 +1,8 @@
+{
+  "version": "v0.2",
+  "model_type": "ridge",
+  "rmse": 53.62628756889519,
+  "random_state": 42,
+  "y_train_min": 25.0,
+  "y_train_max": 346.0
+}
