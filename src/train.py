@@ -47,7 +47,8 @@ def train_and_save(
     preds = pipe.predict(X_test)
     rmse = float(sqrt(mean_squared_error(y_test, preds)))
 
-    # Save model and a small metadata file including train distribution for normalization/risk scoring
+    # Save model and a small metadata file i
+    # including train distribution for normalization/risk scoring
     model_path = f"{out_dir}/model_{version}.joblib"
     save_model(pipe, model_path)
 
