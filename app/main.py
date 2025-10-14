@@ -14,7 +14,8 @@ METRICS_PATH = os.environ.get("METRICS_PATH", "models/metrics_v0.2.json")
 app = FastAPI(title="Virtual Diabetes Triage API")
 
 # dataset feature names
-FEATURES = ["age","sex","bmi","bp","s1","s2","s3","s4","s5","s6"]
+FEATURES = ["age", "sex", "bmi", "bp", "s1", "s2", "s3", "s4", "s5", "s6"]
+
 
 class Patient(BaseModel):
     age: float
@@ -29,10 +30,12 @@ class Patient(BaseModel):
     s6: float
     id: Optional[str] = None
 
+
 class PredictionOut(BaseModel):
     id: Optional[str]
     progression: float
     risk_score: float
+
 
 @app.on_event("startup")
 def load_artifacts():
@@ -44,6 +47,7 @@ def load_artifacts():
             app.state.metrics = json.load(f)
     else:
         app.state.metrics = {"y_train_min": 0.0, "y_train_max": 1.0}
+
 
 @app.post("/predict", response_model=List[PredictionOut])
 def predict(payload: List[Patient]):
@@ -61,12 +65,15 @@ def predict(payload: List[Patient]):
     risk_scores = ((preds - ymin) / denom).tolist()
     out = []
     for i, p in enumerate(payload):
-        out.append({
-            "id": p.id,
-            "progression": float(preds[i]),
-            "risk_score": float(max(0.0, min(1.0, risk_scores[i])))
-        })
+        out.append(
+            {
+                "id": p.id,
+                "progression": float(preds[i]),
+                "risk_score": float(max(0.0, min(1.0, risk_scores[i]))),
+            }
+        )
     return out
+
 
 @app.get("/health")
 def health():

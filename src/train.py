@@ -12,18 +12,29 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from .model import save_model
 
-def train_and_save(version="v0.1", model_type="linear", out_dir="models", test_size=0.2, random_state=42):
+
+def train_and_save(
+    version="v0.1",
+    model_type="linear",
+    out_dir="models",
+    test_size=0.2,
+    random_state=42,
+):
     data = load_diabetes(as_frame=True)
     X = data.frame.drop(columns=["target"])
     y = data.frame["target"]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=random_state
+    )
 
     if model_type == "linear":
         pipe = Pipeline([("scaler", StandardScaler()), ("lr", LinearRegression())])
         pipe.fit(X_train, y_train)
     elif model_type == "ridge":
-        pipe = Pipeline([("scaler", StandardScaler()), ("ridge", Ridge(random_state=random_state))])
-        gs = GridSearchCV(pipe, {"ridge__alpha":[0.1,1.0,10.0,100.0]}, cv=5)
+        pipe = Pipeline(
+            [("scaler", StandardScaler()), ("ridge", Ridge(random_state=random_state))]
+        )
+        gs = GridSearchCV(pipe, {"ridge__alpha": [0.1, 1.0, 10.0, 100.0]}, cv=5)
         gs.fit(X_train, y_train)
         pipe = gs.best_estimator_
     elif model_type == "rf":
@@ -46,7 +57,7 @@ def train_and_save(version="v0.1", model_type="linear", out_dir="models", test_s
         "rmse": rmse,
         "random_state": random_state,
         "y_train_min": float(y_train.min()),
-        "y_train_max": float(y_train.max())
+        "y_train_max": float(y_train.max()),
     }
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     with open(f"{out_dir}/metrics_{version}.json", "w") as f:
@@ -56,6 +67,7 @@ def train_and_save(version="v0.1", model_type="linear", out_dir="models", test_s
     print(json.dumps(meta, indent=2))
     return meta
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", default="v0.1")
@@ -64,5 +76,10 @@ if __name__ == "__main__":
     parser.add_argument("--test_size", type=float, default=0.2)
     parser.add_argument("--random_state", type=int, default=42)
     args = parser.parse_args()
-    train_and_save(version=args.version, model_type=args.model, out_dir=args.out_dir,
-                   test_size=args.test_size, random_state=args.random_state)
+    train_and_save(
+        version=args.version,
+        model_type=args.model,
+        out_dir=args.out_dir,
+        test_size=args.test_size,
+        random_state=args.random_state,
+    )

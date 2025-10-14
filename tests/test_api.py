@@ -4,10 +4,12 @@ import json
 
 client = TestClient(app)
 
+
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+
 
 def test_predict_schema():
     sample = {
@@ -21,7 +23,7 @@ def test_predict_schema():
         "s4": -0.00259226199818282,
         "s5": 0.0199084208761004,
         "s6": -0.0176461251598052,
-        "id": "test1"
+        "id": "test1",
     }
     r = client.post("/predict", json=[sample])
     assert r.status_code == 200
