@@ -10,7 +10,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-from .model import save_model
+try:
+    from .model import save_model
+except ImportError:
+    from model import save_model
 
 
 def train_and_save(

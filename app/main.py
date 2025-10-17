@@ -77,4 +77,5 @@ def predict(payload: List[Patient]):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    model_version = app.state.metrics.get("version", "unknown")
+    return {"status": "ok", "model_version": model_version}
