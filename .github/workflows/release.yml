@@ -1,50 +1,104 @@
-name: CI
+name: Release
 
-on: [push, pull_request]
+on:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
-  lint-test:
+  build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Lint (optional)
-        run: |
-          pip install flake8
-          flake8 .
-      - name: Run tests
-        run: pytest -q
 
-  train-upload-and-smoketest:
-    runs-on: ubuntu-latest
-    needs: lint-test
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Train baseline model (v0.1)
-        run: python -m src.train --version v0.1 --model linear --out_dir models --random_state 42
-      - name: Show metrics file
-        run: cat models/metrics_v0.1.json
-      - name: Upload model artifact
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Train model for release version
+        run: |
+          if [[ "${{ steps.version.outputs.VERSION }}" == "v0.1" ]]; then
+            python -m src.train --version v0.1 --model linear --out_dir models --random_state 42
+          elif [[ "${{ steps.version.outputs.VERSION }}" == "v0.2" ]]; then
+            python -m src.train --version v0.2 --model ridge --out_dir models --random_state 42
+          else
+            echo "Unknown version tag, defaulting to v0.2 ridge model"
+            python -m src.train --version ${{ steps.version.outputs.VERSION }} --model ridge --out_dir models --random_state 42
+          fi
+
+      - name: Show metrics
+        run: cat models/metrics_${{ steps.version.outputs.VERSION }}.json
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$(basename ${{ github.repository }}):${{ steps.version.outputs.VERSION }}
+          IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
+          docker build -t $IMAGE_NAME_LOWER .
+          docker push $IMAGE_NAME_LOWER
+          echo "IMAGE_NAME=$IMAGE_NAME_LOWER" >> $GITHUB_ENV
+
+      - name: Run container smoke tests
+        run: |
+          IMAGE_NAME_LOWER=$(echo "ghcr.io/${{ github.repository_owner }}/$(basename ${{ github.repository }}):${{ steps.version.outputs.VERSION }}" | tr '[:upper:]' '[:lower:]')
+          docker run -d --name triage_test -p 8080:8080 $IMAGE_NAME_LOWER
+          sleep 5
+
+          # Test health endpoint
+          echo "Testing /health endpoint..."
+          HEALTH_RESPONSE=$(curl -f -X GET http://localhost:8080/health)
+          echo "Health response: $HEALTH_RESPONSE"
+
+          # Verify model_version is in response
+          echo "$HEALTH_RESPONSE" | grep -q "model_version" || (echo "ERROR: model_version not found in health response" && exit 1)
+
+          # Test predict endpoint
+          echo "Testing /predict endpoint..."
+          PREDICT_RESPONSE=$(curl -f -X POST http://localhost:8080/predict \
+            -H "Content-Type: application/json" \
+            -d '[{"age":0.02,"sex":-0.044,"bmi":0.06,"bp":-0.03,"s1":-0.02,"s2":0.03,"s3":-0.02,"s4":0.02,"s5":0.02,"s6":-0.001,"id":"patient-001"}]')
+          echo "Predict response: $PREDICT_RESPONSE"
+
+          # Verify response contains expected fields
+          echo "$PREDICT_RESPONSE" | grep -q "progression" || (echo "ERROR: progression not found in predict response" && exit 1)
+          echo "$PREDICT_RESPONSE" | grep -q "risk_score" || (echo "ERROR: risk_score not found in predict response" && exit 1)
+
+          echo "✓ All smoke tests passed!"
+          docker stop triage_test
+
+      - name: Upload model artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: model-v0.1
-          path: models/model_v0.1.joblib
-      - name: Build Docker image
-        run: docker build -t triage:${{ github.sha }} .
-      - name: Run container (smoke test)
-        run: |
-          docker run -d --name triage_test -p 8080:8080 triage:${{ github.sha }}
-          sleep 3
-          curl -f -X GET http://localhost:8080/health
-          # quick sample payload (returns 200)
-          curl -f -X POST http://localhost:8080/predict -H "Content-Type: application/json" -d '[{"age":0,"sex":0,"bmi":0,"bp":0,"s1":0,"s2":0,"s3":0,"s4":0,"s5":0,"s6":0}]'
-        shell: bash
+          name: model-${{ steps.version.outputs.VERSION }}
+          path: |
+            models/model_${{ steps.version.outputs.VERSION }}.joblib
+            models/metrics_${{ steps.version.outputs.VERSION }}.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body_path: CHANGELOG.md
+          files: |
+            models/model_${{ steps.version.outputs.VERSION }}.joblib
+            models/metrics_${{ steps.version.outputs.VERSION }}.json
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
