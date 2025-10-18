@@ -1,7 +1,7 @@
 {
   "version": "v0.1",
   "model_type": "linear",
-  "rmse": 53.85344583676593,
+  "rmse": 53.85344583676594,
   "random_state": 42,
   "y_train_min": 25.0,
   "y_train_max": 346.0

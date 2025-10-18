@@ -89,18 +89,33 @@ Example Output:
 ```
 
 ##  6. Build and Run with Docker
+
+### Option A: Using Docker Compose (Recommended)
+```bash
+# Build and start the service
+docker-compose up -d --build
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f api
+
+# Stop the service
+docker-compose down
+```
+
+### Option B: Using Docker directly
 ```bash
 docker build -t maio_assignment3:local . && docker run -p 8080:8080 maio_assignment3:local
 ```
 
 Test in another terminal:
 ```bash
+# Health check
 curl -X GET http://127.0.0.1:8080/health
-```
 
-or:
-
-```bash
+# Prediction test
 curl -X POST "http://127.0.0.1:8080/predict" -H "Content-Type: application/json" -d "[{\"age\":0,\"sex\":0,\"bmi\":0,\"bp\":0,\"s1\":0,\"s2\":0,\"s3\":0,\"s4\":0,\"s5\":0,\"s6\":0,\"id\":\"p1\"}]"
 ```
 
@@ -113,9 +128,13 @@ Maio_assignment3/
 ├── models/               # Saved models + metrics
 ├── tests/                # Unit tests
 ├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
 ├── README.md
-└── .github/workflows/ci.yml
+├── CHANGELOG.md
+└── .github/workflows/    # CI/CD pipelines
+    ├── ci.yml
+    └── release.yml
 ```
 
 ## 7. Using Pre-built Docker Images from GitHub Container Registry

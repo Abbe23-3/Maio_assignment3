@@ -3,18 +3,36 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from pathlib import Path
+from contextlib import asynccontextmanager
 import os
 import json
 from src.model import load_model
+import pandas as pd
 import numpy as np
 
 MODEL_PATH = os.environ.get("MODEL_PATH", "models/model_v0.2.joblib")
 METRICS_PATH = os.environ.get("METRICS_PATH", "models/metrics_v0.2.json")
 
-app = FastAPI(title="Virtual Diabetes Triage API")
-
 # dataset feature names
 FEATURES = ["age", "sex", "bmi", "bp", "s1", "s2", "s3", "s4", "s5", "s6"]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Load model and metrics
+    if not Path(MODEL_PATH).exists():
+        raise RuntimeError(f"Model not found at {MODEL_PATH}")
+    app.state.model = load_model(MODEL_PATH)
+    if Path(METRICS_PATH).exists():
+        with open(METRICS_PATH) as f:
+            app.state.metrics = json.load(f)
+    else:
+        app.state.metrics = {"y_train_min": 0.0, "y_train_max": 1.0}
+    yield
+    # Shutdown: cleanup if needed
+
+
+app = FastAPI(title="Virtual Diabetes Triage API", lifespan=lifespan)
 
 
 class Patient(BaseModel):
@@ -37,22 +55,13 @@ class PredictionOut(BaseModel):
     risk_score: float
 
 
-@app.on_event("startup")
-def load_artifacts():
-    if not Path(MODEL_PATH).exists():
-        raise RuntimeError(f"Model not found at {MODEL_PATH}")
-    app.state.model = load_model(MODEL_PATH)
-    if Path(METRICS_PATH).exists():
-        with open(METRICS_PATH) as f:
-            app.state.metrics = json.load(f)
-    else:
-        app.state.metrics = {"y_train_min": 0.0, "y_train_max": 1.0}
-
-
 @app.post("/predict", response_model=List[PredictionOut])
 def predict(payload: List[Patient]):
     try:
-        X = np.array([[getattr(p, f) for f in FEATURES] for p in payload])
+        X = pd.DataFrame(
+            [[getattr(p, f) for f in FEATURES] for p in payload],
+            columns=FEATURES
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid payload: {e}")
 

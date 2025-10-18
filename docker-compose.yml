@@ -1,0 +1,45 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: diabetes_triage_api
+    ports:
+      - "8080:8080"
+    environment:
+      - MODEL_PATH=/app/models/model_v0.2.joblib
+      - METRICS_PATH=/app/models/metrics_v0.2.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - triage_network
+
+  # Alternative service for v0.1 model (commented out by default)
+  # api-v0.1:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: diabetes_triage_api_v0.1
+  #   ports:
+  #     - "8081:8080"
+  #   environment:
+  #     - MODEL_PATH=/app/models/model_v0.1.joblib
+  #     - METRICS_PATH=/app/models/metrics_v0.1.json
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+  #     start_period: 5s
+  #   restart: unless-stopped
+  #   networks:
+  #     - triage_network
+
+networks:
+  triage_network:
+    driver: bridge

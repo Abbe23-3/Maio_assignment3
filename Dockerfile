@@ -6,6 +6,10 @@ ENV PYTHONUNBUFFERED=1
 ENV MODEL_PATH=/app/models/model_v0.2.joblib
 ENV METRICS_PATH=/app/models/metrics_v0.2.json
 
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
