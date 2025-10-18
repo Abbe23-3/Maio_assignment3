@@ -465,50 +465,7 @@ def get_prediction(features_tuple):
     return model.predict([features_tuple])
 ```
 
----
 
-## Security
-
-### Current Security Measures
-✅ Pydantic input validation
-✅ No shell injection risks (no subprocess calls)
-✅ HTTPS in production (via reverse proxy)
-✅ Docker image health checks
-
-### Recommended Additions
-🔒 **Run as non-root user** in Docker:
-```dockerfile
-RUN useradd -m appuser
-USER appuser
-```
-
-🔒 **Rate limiting** (prevent abuse):
-```python
-from slowapi import Limiter
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-
-@app.post("/predict")
-@limiter.limit("100/minute")
-def predict(...):
-    ...
-```
-
-🔒 **API authentication** (if sensitive data):
-```python
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer
-
-security = HTTPBearer()
-
-@app.post("/predict")
-def predict(payload: List[Patient], token=Depends(security)):
-    if not verify_token(token):
-        raise HTTPException(401, "Unauthorized")
-    ...
-```
-
----
 
 ## Technology Stack
 
@@ -527,29 +484,6 @@ def predict(payload: List[Patient], token=Depends(security)):
 | **CI/CD** | GitHub Actions | Automation |
 | **Registry** | GHCR | Docker image hosting |
 
----
-
-## Future Enhancements
-
-### Short-term
-- [ ] Add `/metrics` endpoint for Prometheus
-- [ ] Add request logging (structured JSON logs)
-- [ ] Add model explainability (SHAP values)
-- [ ] Add batch prediction limit (max 100 patients)
-
-### Medium-term
-- [ ] A/B testing framework (v0.1 vs v0.2)
-- [ ] Model monitoring (prediction drift detection)
-- [ ] Automated retraining pipeline
-- [ ] Feature store integration
-
-### Long-term
-- [ ] Multi-model ensemble
-- [ ] Real-time learning (online ML)
-- [ ] Integration with EHR systems
-- [ ] HIPAA compliance features
-
----
 
 ## Glossary
 
@@ -563,7 +497,6 @@ def predict(payload: List[Patient], token=Depends(security)):
 
 ---
 
-## Quick Reference
 
 ### Common Commands
 ```bash
@@ -588,28 +521,3 @@ curl -X POST http://localhost:8080/predict \
   -d '[{"age":0,"sex":0,"bmi":0,"bp":0,"s1":0,"s2":0,"s3":0,"s4":0,"s5":0,"s6":0}]'
 ```
 
-### File Locations
-- Models: `models/model_<version>.joblib`
-- Metrics: `models/metrics_<version>.json`
-- Logs: `docker-compose logs api`
-- CI results: GitHub repo → Actions tab
-- Released images: `ghcr.io/<user>/maio_assignment3:<version>`
-
----
-
-## Summary
-
-This architecture provides:
-✅ **Reproducible training** (pinned dependencies, fixed seeds)
-✅ **Scalable API** (containerized, stateless)
-✅ **Automated testing** (CI pipeline)
-✅ **Automated deployment** (release workflow)
-✅ **Version control** (models tagged and tracked)
-✅ **Production-ready** (health checks, error handling)
-
-The system follows **MLOps best practices**:
-- Code and models are versioned together
-- Training is automated and reproducible
-- Deployment is containerized
-- CI/CD ensures quality gates
-- Monitoring-ready (health endpoint)
