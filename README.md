@@ -78,6 +78,13 @@ docker build -t maio_assignment3:local .
 docker run -p 8080:8080 maio_assignment3:local
 ```
 
+Using docker-compose:
+```bash
+docker compose up --build -d
+curl http://127.0.0.1:8080/health
+docker compose down
+```
+
 ##  Project Structure
 ```bash
 Maio_assignment3/
@@ -89,11 +96,27 @@ Maio_assignment3/
 ├── Dockerfile
 ├── requirements.txt
 ├── README.md
-└── .github/workflows/ci.yml
+└── .github/workflows/
+    ├── ci.yml
+    └── release.yml
 ```
 
-##  7. Continuous Integration (CI)
-GitHub Actions automatically:
-Lints and tests your code
-Trains and uploads the model artifact
-Builds and smoke-tests the Docker image
+## 7. Continuous Integration (CI)
+- `ci.yml` runs lint/tests, trains v0.1 & v0.2, uploads artifacts, and smoke-tests the v0.2 Docker image.
+- `release.yml` runs on tags `v*`, retrains the appropriate model, builds & pushes `ghcr.io/<user>/maio_assignment3:<tag>`, smoke-tests the pushed image, and publishes a GitHub Release with artifacts + metrics.
+
+## 8. Documentation
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- [`docs/PIPELINE_GUIDE.md`](docs/PIPELINE_GUIDE.md)
+- [`docs/QUICK_START.md`](docs/QUICK_START.md)
+- [`docs/ORGANIZATION_RECOMMENDATIONS.md`](docs/ORGANIZATION_RECOMMENDATIONS.md)
+
+## 9. Release Flow
+```bash
+# Ensure main is green, then create a tag
+git tag v0.2
+git push origin v0.2
+
+# Release workflow will train, build & push ghcr.io/<your-user>/maio_assignment3:v0.2
+# and publish a GitHub Release with release notes + artifacts.
+```

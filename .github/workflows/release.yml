@@ -1,50 +1,91 @@
-name: CI
+name: Release
 
-on: [push, pull_request]
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
-  lint-test:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Lint (optional)
-        run: |
-          pip install flake8
-          flake8 .
-      - name: Run tests
-        run: pytest -q
 
-  train-upload-and-smoketest:
-    runs-on: ubuntu-latest
-    needs: lint-test
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Train baseline model (v0.1)
-        run: python -m src.train --version v0.1 --model linear --out_dir models --random_state 42
-      - name: Show metrics file
-        run: cat models/metrics_v0.1.json
-      - name: Upload model artifact
+        run: pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Derive metadata
+        id: meta
+        run: |
+          VERSION="${GITHUB_REF##*/}"
+          case "$VERSION" in
+            v0.1) MODEL="linear" ;;
+            v0.2) MODEL="ridge" ;;
+            *) MODEL="ridge" ;;
+          esac
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Train model
+        run: >
+          python -m src.train
+          --version ${{ steps.meta.outputs.version }}
+          --model ${{ steps.meta.outputs.model }}
+          --out_dir models
+          --random_state 42
+
+      - name: Show metrics
+        run: cat models/metrics_${{ steps.meta.outputs.version }}.json
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build image
+        run: docker build -t ${{ steps.meta.outputs.image }} .
+
+      - name: Push image
+        run: docker push ${{ steps.meta.outputs.image }}
+
+      - name: Smoke test image
+        shell: bash
+        run: |
+          docker run -d --name triage_release -p 8080:8080 ${{ steps.meta.outputs.image }}
+          trap 'docker rm -f triage_release' EXIT
+          sleep 5
+          curl -f http://localhost:8080/health
+          curl -f -X POST http://localhost:8080/predict \
+            -H "Content-Type: application/json" \
+            -d '[{"age":0,"sex":0,"bmi":0,"bp":0,"s1":0,"s2":0,"s3":0,"s4":0,"s5":0,"s6":0}]'
+
+      - name: Generate release notes
+        run: python scripts/generate_release_notes.py ${{ steps.meta.outputs.version }}
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: model-v0.1
-          path: models/model_v0.1.joblib
-      - name: Build Docker image
-        run: docker build -t triage:${{ github.sha }} .
-      - name: Run container (smoke test)
-        run: |
-          docker run -d --name triage_test -p 8080:8080 triage:${{ github.sha }}
-          sleep 3
-          curl -f -X GET http://localhost:8080/health
-          # quick sample payload (returns 200)
-          curl -f -X POST http://localhost:8080/predict -H "Content-Type: application/json" -d '[{"age":0,"sex":0,"bmi":0,"bp":0,"s1":0,"s2":0,"s3":0,"s4":0,"s5":0,"s6":0}]'
-        shell: bash
+          name: release-artifacts-${{ steps.meta.outputs.version }}
+          path: |
+            models/model_${{ steps.meta.outputs.version }}.joblib
+            models/metrics_${{ steps.meta.outputs.version }}.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.meta.outputs.version }}
+          name: ${{ steps.meta.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            models/model_${{ steps.meta.outputs.version }}.joblib
+            models/metrics_${{ steps.meta.outputs.version }}.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
