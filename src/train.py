@@ -4,10 +4,10 @@ from pathlib import Path
 from math import sqrt
 import numpy as np
 from sklearn.datasets import load_diabetes
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.linear_model import LinearRegression, RidgeCV
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from .model import save_model
@@ -32,14 +32,16 @@ def train_and_save(
         pipe.fit(X_train, y_train)
     elif model_type == "ridge":
         pipe = Pipeline(
-            [("scaler", StandardScaler()), ("ridge", Ridge(random_state=random_state))]
+            [
+                ("scaler", StandardScaler()),
+                ("ridge", RidgeCV(alphas=[0.1, 1.0, 10.0, 100.0], cv=5)),
+            ]
         )
-        gs = GridSearchCV(pipe, {"ridge__alpha": [0.1, 1.0, 10.0, 100.0]}, cv=5)
-        gs.fit(X_train, y_train)
-        pipe = gs.best_estimator_
+        pipe.fit(X_train, y_train)
     elif model_type == "rf":
-        rf = RandomForestRegressor(n_estimators=200, random_state=random_state)
-        pipe = Pipeline([("scaler", StandardScaler()), ("rf", rf)])
+        pipe = RandomForestRegressor(
+            n_estimators=200, random_state=random_state, n_jobs=-1
+        )
         pipe.fit(X_train, y_train)
     else:
         raise ValueError("model_type must be one of ['linear','ridge','rf']")

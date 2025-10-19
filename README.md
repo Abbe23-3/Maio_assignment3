@@ -16,7 +16,7 @@ cd Maio_assignment3
 On macOS / Linux
 ```bash
 python -m venv .venv
-source .venv/bin/activategit clone https://github.com/Abbe23-3/
+source .venv/bin/activate
 ```
 On Windows (CMD)
 ```bash
@@ -28,59 +28,54 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## 3. Train the Baseline Model (v0.1)
+## 3. Train Models
+Baseline (v0.1)
 ```bash
 python -m src.train --version v0.1 --model linear --out_dir models --random_state 42
+cat models/metrics_v0.1.json  # Windows: type models\metrics_v0.1.json
 ```
 
-Check metrics:
-
-## On Windows (CMD)
+Improved (v0.2)
 ```bash
-type models\metrics_v0.1.json
+python -m src.train --version v0.2 --model ridge --out_dir models --random_state 42
+cat models/metrics_v0.2.json
 ```
 
-##  4. Run the API Locally (using the trained model)
-On Windows (CMD)
+## 4. Run the API Locally
+On macOS / Linux
 ```bash
-set MODEL_PATH=models\model_v0.1.joblib
-set METRICS_PATH=models\metrics_v0.1.json
+export MODEL_PATH=models/model_v0.2.joblib
+export METRICS_PATH=models/metrics_v0.2.json
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
-##  5. Test the /predict Endpoint
-
-Once the server is running:
+Windows (CMD)
 ```bash
-curl -X POST "http://127.0.0.1:8080/predict" -H "Content-Type: application/json" -d "[{\"age\":0,\"sex\":0,\"bmi\":0,\"bp\":0,\"s1\":0,\"s2\":0,\"s3\":0,\"s4\":0,\"s5\":0,\"s6\":0,\"id\":\"p1\"}]"
+set MODEL_PATH=models\model_v0.2.joblib
+set METRICS_PATH=models\metrics_v0.2.json
+uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
-Example Output:
+## 5. Test the API
 
+Health check:
 ```bash
-[
-  {
-    "id": "p1",
-    "progression": 151.34880031817556,
-    "risk_score": 0.3936099698385532
-  }
-]
+curl http://127.0.0.1:8080/health
+# {"status":"ok","model_loaded":true,"model_version":"v0.2"}
 ```
 
-##  6. Build and Run with Docker
+Prediction:
 ```bash
-docker build -t maio_assignment3:local . && docker run -p 8080:8080 maio_assignment3:local
+curl -X POST "http://127.0.0.1:8080/predict" \
+  -H "Content-Type: application/json" \
+  -d "[{\"age\":0,\"sex\":0,\"bmi\":0,\"bp\":0,\"s1\":0,\"s2\":0,\"s3\":0,\"s4\":0,\"s5\":0,\"s6\":0,\"id\":\"p1\"}]"
+# [{"id":"p1","progression":151.35,"prediction":151.35,"risk_score":0.39}]
 ```
 
-Test in another terminal:
+## 6. Build and Run with Docker
 ```bash
-curl -X GET http://127.0.0.1:8080/health
-```
-
-or:
-
-```bash
-curl -X POST "http://127.0.0.1:8080/predict" -H "Content-Type: application/json" -d "[{\"age\":0,\"sex\":0,\"bmi\":0,\"bp\":0,\"s1\":0,\"s2\":0,\"s3\":0,\"s4\":0,\"s5\":0,\"s6\":0,\"id\":\"p1\"}]"
+docker build -t maio_assignment3:local .
+docker run -p 8080:8080 maio_assignment3:local
 ```
 
 ##  Project Structure

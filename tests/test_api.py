@@ -9,6 +9,7 @@ def test_health():
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+    assert "model_version" in r.json()
 
 
 def test_predict_schema():
@@ -29,4 +30,5 @@ def test_predict_schema():
     assert r.status_code == 200
     res = r.json()
     assert isinstance(res, list) and len(res) == 1
-    assert "progression" in res[0] and "risk_score" in res[0]
+    assert "prediction" in res[0]
+    assert "risk_score" in res[0]
