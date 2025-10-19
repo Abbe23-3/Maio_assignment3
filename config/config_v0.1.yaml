@@ -1,0 +1,16 @@
+model:
+  name: "diabetes_triage_v0.1"
+  type: "linear_regression"
+  test_size: 0.2
+  random_state: 42
+
+preprocessing:
+  scaler: "standard"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+paths:
+  models_dir: "models"
+  logs_dir: "logs"
